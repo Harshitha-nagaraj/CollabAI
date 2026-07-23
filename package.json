@@ -1,0 +1,9 @@
+{
+  "name": "collabai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": { "node": ">=20.18.0", "pnpm": ">=9.15.0" },
+  "scripts": { "build": "turbo run build", "dev": "turbo run dev --parallel", "lint": "turbo run lint", "typecheck": "turbo run typecheck", "format": "prettier --write .", "format:check": "prettier --check .", "clean": "turbo run clean && rimraf node_modules" },
+  "devDependencies": { "prettier": "^3.5.3", "rimraf": "^6.0.1", "turbo": "^2.4.4", "typescript": "^5.8.2" }
+}

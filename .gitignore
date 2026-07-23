@@ -1,0 +1,124 @@
+# ==========================================
+# 1. DEPENDENCY FOLDERS
+# ==========================================
+# Ignores all node_modules directories recursively to avoid checking in third-party dependencies.
+node_modules/
+jspm_packages/
+web_modules/
+
+# ==========================================
+# 2. BUILD AND COMPILED OUTPUTS
+# ==========================================
+# Ignores compiled code, production builds, and test coverage reports.
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+output/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# ==========================================
+# 3. ENVIRONMENT AND SECRETS
+# ==========================================
+# Ignores all local environment configuration files containing sensitive credentials.
+# Explicitly allows tracking .env.example to serve as a template.
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.test
+.env.production
+*.env
+*.env.local
+!.env.example
+
+# ==========================================
+# 4. LOGS AND RUNTIME CACHES
+# ==========================================
+# Ignores debug logs and package manager run caches.
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.prettiercache
+.parcel-cache
+.cache/
+.vitepress/cache
+.docusaurus/
+
+# ==========================================
+# 5. TURBOREPO CACHE
+# ==========================================
+# Ignores Turborepo's local artifact caching directory.
+.turbo/
+
+# ==========================================
+# 6. EDITOR AND IDE SPECIFIC FILES
+# ==========================================
+# Ignores editor configuration folders and workspace files.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# ==========================================
+# 7. OS-SPECIFIC FILES
+# ==========================================
+# Ignores operating system metadata files.
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ==========================================
+# 8. PRISMA AND DATABASE FILES
+# ==========================================
+# Ignores local database files and SQLite databases generated during development.
+# Note: Prisma schema and migrations should be tracked in Git, so they are not ignored here.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# ==========================================
+# 9. FUTURE REACT NATIVE / EXPO
+# ==========================================
+# Ignores build outputs, dependencies, and configuration directories for mobile development.
+.expo/
+*.jks
+*.p8
+*.keystore
+*.key
+ios/build/
+ios/Pods/
+ios/.xcode.env.local
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+.metro/
