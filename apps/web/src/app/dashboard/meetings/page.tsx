@@ -23,6 +23,7 @@ import { LiveMeetingRoom } from '@/components/meetings/live-meeting-room';
 import { TaskApprovalHub } from '@/components/meetings/task-approval-hub';
 import { SprintPlanningView } from '@/components/meetings/sprint-planning-view';
 import { MeetingDocumentationView } from '@/components/meetings/meeting-documentation-view';
+import { MeetingSummaryView } from '@/components/meeting-summary-view';
 import { FutureIntegrationsModal } from '@/components/meetings/future-integrations-modal';
 import { ScheduleMeetingModal } from '@/components/meetings/schedule-meeting-modal';
 import { MeetingDetailsModal } from '@/components/meetings/meeting-details-modal';
@@ -84,6 +85,9 @@ export default function MeetingsPage() {
   // Reconstruct full structured intelligence from persisted meeting record
   const rehydrateIntelligenceFromMeeting = (meeting: MeetingItem | null) => {
     if (!meeting) return null;
+    if (meeting.structuredSummary) {
+      return meeting.structuredSummary;
+    }
     if (!meeting.summary && !meeting.actionItems && !meeting.decisions && meeting.status !== 'PROCESSED') {
       return null;
     }
@@ -98,7 +102,7 @@ export default function MeetingsPage() {
       source = sourceMatch[1].trim();
     }
 
-    const pointsMatch = rawSummary.match(/Key Discussion Points:\s*([\s\S]*?)(?=(?:###|Decisions|$))/i);
+    const pointsMatch = rawSummary.match(/Key Discussion Points:\s*([\s\S]*?)(?=(?:###|Decisions|Action Items|Unresolved|$))/i);
     if (pointsMatch && pointsMatch[1]) {
       keyDiscussionPoints = pointsMatch[1]
         .split('\n')
@@ -121,6 +125,7 @@ export default function MeetingsPage() {
       risks: parseJsonSafe(meeting.risks, []),
       deadlinesMentioned: parseJsonSafe(meeting.deadlines, []),
       pendingQuestions: parseJsonSafe(meeting.pendingQuestions, []),
+      unresolvedQuestions: parseJsonSafe(meeting.pendingQuestions, []),
       suggestedFollowUps: parseJsonSafe(meeting.followUps, []),
       sentiment: parseJsonSafe(meeting.sentiment, {
         label: 'CONSTRUCTIVE',
@@ -186,6 +191,10 @@ export default function MeetingsPage() {
       const rehydrated = rehydrateIntelligenceFromMeeting(activeMeeting);
       if (rehydrated) {
         setIntelligenceResult(rehydrated);
+        if ((activeMeeting.status === 'PROCESSED' || activeMeeting.status === 'SUMMARIZED') && activeTab === 'room') {
+          setActiveTab('summary');
+          setActiveWorkflowStep('summary');
+        }
       }
     } else {
       setIntelligenceResult(null);
@@ -509,214 +518,17 @@ export default function MeetingsPage() {
         {activeTab === 'summary' && (
           <div className="space-y-6">
             {intelligenceResult ? (
-              <>
-                {/* Source & Overview Card */}
-                <div className="rounded-xl border border-[#E2DACF] bg-white p-6 shadow-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2DACF] pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-md bg-[#1F4D3A] px-2.5 py-1 text-[11px] font-bold text-white uppercase tracking-wider">
-                        Source: {intelligenceResult.source || 'Meeting Notes'}
-                      </span>
-                      <span className="text-xs text-[#525B56]">
-                        {intelligenceResult.source === 'Meeting Notes'
-                          ? 'Derived strictly from collaborative notes recorded during the meeting'
-                          : intelligenceResult.source === 'Meeting Transcript'
-                          ? 'Derived from recorded meeting transcript'
-                          : 'Derived from available meeting notes and conversation'}
-                      </span>
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActiveTab('tasks')}
-                      className="text-xs font-semibold text-[#1F4D3A] border-[#1F4D3A]/30 hover:bg-[#1F4D3A]/5"
-                    >
-                      ⚡ Review {intelligenceResult.actionItems?.length || 0} Action Items →
-                    </Button>
-                  </div>
-
-                  <div className="mt-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1F4D3A]">
-                      ✨ Executive Overview
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-[#2D2D2D] font-medium whitespace-pre-line">
-                      {intelligenceResult.overview || intelligenceResult.executiveSummary}
-                    </p>
-                  </div>
-
-                  {/* Key Discussion Points */}
-                  {intelligenceResult.keyDiscussionPoints && intelligenceResult.keyDiscussionPoints.length > 0 && (
-                    <div className="mt-5 border-t border-[#E2DACF] pt-4">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#525B56] mb-2">
-                        💬 Key Discussion Points
-                      </h4>
-                      <ul className="space-y-1.5 text-xs text-[#2D2D2D]">
-                        {intelligenceResult.keyDiscussionPoints.map((point: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-[#1F4D3A] font-bold">•</span>
-                            <span>{point}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Decisions & Unresolved Questions Grid */}
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="rounded-xl border border-[#E2DACF] bg-white p-5 shadow-xs">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-bold text-[#1F4D3A] uppercase tracking-wider">
-                        ⚖️ Key Decisions Made
-                      </h4>
-                      <span className="text-[10px] font-bold text-[#1F4D3A] bg-[#1F4D3A]/10 px-2 py-0.5 rounded">
-                        {intelligenceResult.keyDecisions?.length || 0} Decisions
-                      </span>
-                    </div>
-                    {intelligenceResult.keyDecisions && intelligenceResult.keyDecisions.length > 0 ? (
-                      <ul className="space-y-2 text-xs text-[#2D2D2D]">
-                        {intelligenceResult.keyDecisions.map((d: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-emerald-700 font-bold">✓</span>
-                            <span>{d}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-[#525B56] italic">No explicit decisions recorded in notes.</p>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-[#E2DACF] bg-white p-5 shadow-xs">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-bold text-[#8A661C] uppercase tracking-wider">
-                        ❓ Unresolved Questions & Follow-ups
-                      </h4>
-                      <span className="text-[10px] font-bold text-[#8A661C] bg-[#D4A545]/15 px-2 py-0.5 rounded">
-                        {intelligenceResult.pendingQuestions?.length || 0} Open
-                      </span>
-                    </div>
-                    {intelligenceResult.pendingQuestions && intelligenceResult.pendingQuestions.length > 0 ? (
-                      <ul className="space-y-2 text-xs text-[#2D2D2D]">
-                        {intelligenceResult.pendingQuestions.map((q: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-amber-600 font-bold">?</span>
-                            <span>{q}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-[#525B56] italic">No unresolved questions detected.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Action Items Review Summary Preview */}
-                <div className="rounded-xl border border-[#E2DACF] bg-white p-5 shadow-xs">
-                  <div className="flex items-center justify-between border-b border-[#E2DACF] pb-3 mb-4">
-                    <div>
-                      <h4 className="text-xs font-bold text-[#1F4D3A] uppercase tracking-wider">
-                        ⚡ Extracted Action Items ({intelligenceResult.actionItems?.length || 0})
-                      </h4>
-                      <p className="text-[11px] text-[#525B56] mt-0.5">
-                        Tasks require human review and approval in the Task Approval tab before being created in Kanban.
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setActiveTab('tasks')}
-                      className="text-xs bg-[#1F4D3A] hover:bg-[#163E32] text-white"
-                    >
-                      Open Task Approval Hub →
-                    </Button>
-                  </div>
-
-                  {intelligenceResult.actionItems && intelligenceResult.actionItems.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {intelligenceResult.actionItems.map((item: any, idx: number) => (
-                        <div
-                          key={item.id || idx}
-                          className="rounded-lg border border-[#E2DACF] bg-[#F7F5F0]/40 p-3 flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-1 mb-1.5">
-                              <span
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                                  item.priority === 'URGENT' || item.priority === 'HIGH'
-                                    ? 'bg-[#C56D4B]/15 text-[#C56D4B]'
-                                    : 'bg-[#D4A545]/15 text-[#8A661C]'
-                                }`}
-                              >
-                                {item.priority}
-                              </span>
-                              {item.dueDate ? (
-                                <span className="text-[10px] text-amber-800 font-semibold">
-                                  📅 {item.dueDate}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-[#525B56] italic">No deadline</span>
-                              )}
-                            </div>
-                            <h5 className="text-xs font-bold text-[#252D2A] line-clamp-1">{item.title}</h5>
-                            <p className="text-[11px] text-[#525B56] line-clamp-2 mt-1">{item.description}</p>
-                          </div>
-                          <div className="mt-2.5 pt-2 border-t border-[#E2DACF]/70 flex items-center justify-between text-[10px]">
-                            <span className="text-[#525B56]">Assignee:</span>
-                            <span className="font-semibold text-[#1F4D3A]">
-                              {item.assignee || 'Unassigned'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[#525B56] italic">No action items extracted from this meeting.</p>
-                  )}
-                </div>
-
-                {/* Sentiment & Deadlines Row */}
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="rounded-xl border border-[#E2DACF] bg-white p-5 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#767676] uppercase tracking-wider">
-                        Meeting Sentiment Score
-                      </span>
-                      <span className="rounded bg-[#1F4D3A]/10 px-3 py-1 text-xs font-bold text-[#1F4D3A]">
-                        {intelligenceResult.sentiment?.label || 'CONSTRUCTIVE'} ({intelligenceResult.sentiment?.score || 80}/100)
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-[#5A5A5A]">
-                      {intelligenceResult.sentiment?.summary}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-[#E2DACF] bg-white p-5 shadow-xs">
-                    <span className="text-xs font-bold text-[#767676] uppercase tracking-wider">
-                      Deadlines Mentioned
-                    </span>
-                    {intelligenceResult.deadlinesMentioned && intelligenceResult.deadlinesMentioned.length > 0 ? (
-                      <ul className="mt-2 space-y-1 text-xs text-[#2D2D2D]">
-                        {intelligenceResult.deadlinesMentioned.map((d: any, idx: number) => (
-                          <li key={idx}>
-                            • <span className="font-bold text-[#1F4D3A]">{d.topic}</span> — {d.date} ({d.context})
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-2 text-xs text-[#525B56] italic">No specific deadlines mentioned.</p>
-                    )}
-                  </div>
-                </div>
-              </>
+              <MeetingSummaryView
+                summary={intelligenceResult}
+                onOpenApprovalHub={() => setActiveTab('tasks')}
+                onApproveAction={() => setActiveTab('tasks')}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#E2DACF] bg-white p-12 text-center">
                 <span className="text-4xl">🎙️</span>
                 <h4 className="mt-3 text-sm font-bold text-[#2D2D2D]">No AI Meeting Intelligence Processed Yet</h4>
                 <p className="mt-1 text-xs text-[#5A5A5A] max-w-sm">
-                  Click &quot;End Meeting & Run AI Engine&quot; inside the Live Meeting Room tab to generate instant executive summaries.
+                  Click &quot;End Meeting & Run AI Engine&quot; inside the Live Meeting Room tab or record notes to generate structured meeting intelligence.
                 </p>
               </div>
             )}

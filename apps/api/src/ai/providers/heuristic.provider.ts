@@ -123,27 +123,44 @@ export class HeuristicProvider implements LLMProvider {
     // Decisions: sentences indicating decisions
     const decisionMatches = sentences.filter(s =>
       /\b(decided|agreed|confirmed|approved|will go with|finalized|conclusion|resolution)\b/i.test(s) ||
-      /^[•\-\*]?\s*(decision|agreed):/i.test(s)
+      /^[•\-\*]?\s*(?:decision|decided|agreed|conclusion|resolution):/i.test(s)
     );
-    const keyDecisions = decisionMatches.map(s => s.replace(/^[•\-\*]?\s*(decision|agreed):\s*/i, '').trim());
+    const keyDecisions = decisionMatches.map(s =>
+      s
+        .replace(/^[•\-\*]?\s*(?:decision|decided|agreed|conclusion|resolution):\s*/i, '')
+        .replace(/^[•\-\*]\s*/, '')
+        .trim()
+    );
 
     // Risks: sentences indicating risk or blocker
     const riskMatches = sentences.filter(s =>
       /\b(risk|concern|worried|issue|problem|blocker|delay|threat|bottleneck|vulnerability)\b/i.test(s) ||
-      /^[•\-\*]?\s*(risk|blocker):/i.test(s)
+      /^[•\-\*]?\s*(?:risk|blocker|concern):/i.test(s)
     );
-    const risks = riskMatches.map(s => s.replace(/^[•\-\*]?\s*(risk|blocker):\s*/i, '').trim());
+    const risks = riskMatches.map(s =>
+      s
+        .replace(/^[•\-\*]?\s*(?:risk|blocker|concern):\s*/i, '')
+        .replace(/^[•\-\*]\s*/, '')
+        .trim()
+    );
 
-    // Questions: sentences ending in ? or labeled question/tbd
+    // Questions: sentences ending in ? or labeled question/tbd/unresolved
     const questionMatches = sentences.filter(s =>
       s.trim().endsWith('?') ||
       /\b(open question|unresolved|tbd|to investigate|to clarify)\b/i.test(s) ||
-      /^[•\-\*]?\s*(question|q):/i.test(s)
+      /^[•\-\*]?\s*(?:open\s+question|question|q|unresolved):\s*/i.test(s)
     );
-    const pendingQuestions = questionMatches.map(s => s.replace(/^[•\-\*]?\s*(question|q):\s*/i, '').trim());
+    const pendingQuestions = questionMatches.map(s =>
+      s
+        .replace(/^[•\-\*]?\s*(?:open\s+question|question|q|unresolved):\s*/i, '')
+        .replace(/^[•\-\*]\s*/, '')
+        .trim()
+    );
 
     // Action items: actionable sentences with strict participant matching
-    const actionItems = this.extractActionItems(sentences, workspaceMembers);
+    const nonActionSentences = new Set([...decisionMatches, ...questionMatches]);
+    const candidateSentences = sentences.filter(s => !nonActionSentences.has(s));
+    const actionItems = this.extractActionItems(candidateSentences, workspaceMembers);
 
     // Deadlines mentioned: extract explicitly detected dates
     const deadlinesMentioned: any[] = [];
@@ -171,7 +188,7 @@ export class HeuristicProvider implements LLMProvider {
       .map(s => this.cleanTitle(s));
 
     const overview = sentences.length > 0
-      ? `Summary of ${source.toLowerCase()} for "${title}": ${sentences.slice(0, 2).join(' ')}`
+      ? `Summary of ${source.toLowerCase()} for "${title}": ${sentences.slice(0, 2).map(s => this.cleanTitle(s)).join(' ')}`
       : `Discussion recorded from ${source.toLowerCase()} for "${title}".`;
 
     const executiveSummary = `[Source: ${source}]\n\n${overview}\n\nKey Discussion Points:\n${
@@ -629,7 +646,21 @@ export class HeuristicProvider implements LLMProvider {
   }
 
   private isActionable(sentence: string): boolean {
-    return /\b(need to|must|should|will|fix|build|create|draft|review|implement|update|refactor|deploy|test|design|write|set up|configure|migrate|integrate|resolve|address|prepare|complete|finalize|investigate|schedule|send|share|assign|discuss)\b/i.test(sentence);
+    const s = sentence.trim();
+    // Explicit action item or task prefix
+    if (/^[•\-\*]?\s*(?:action|todo|task|action item):\s*/i.test(s)) {
+      return true;
+    }
+    // Person assigned to do something at the start of an item: e.g. "Sarah Connor to prepare..."
+    if (/^[•\-\*]?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+to\s+[a-z]+/.test(s)) {
+      return true;
+    }
+    // Explicit imperative verbs at the start of a bullet / item
+    if (/^[•\-\*]?\s*(?:fix|build|create|draft|review|implement|update|refactor|deploy|test|design|write|set up|configure|migrate|integrate|resolve|prepare)\b/i.test(s)) {
+      return true;
+    }
+    // Strong imperative phrases
+    return /\b(need to|must|should|action item|assign to)\b/i.test(s);
   }
 
   private extractActionItems(
@@ -661,23 +692,27 @@ export class HeuristicProvider implements LLMProvider {
     text: string,
     workspaceMembers?: Array<{ id: string; name: string; email?: string }>
   ): { name: string | null; memberId: string | null } {
-    if (!workspaceMembers || workspaceMembers.length === 0) {
-      return { name: null, memberId: null };
+    if (workspaceMembers && workspaceMembers.length > 0) {
+      for (const member of workspaceMembers) {
+        if (!member.name) continue;
+        const firstName = member.name.trim().split(/\s+/)[0];
+        const fullName = member.name.trim();
+
+        const nameRegex = new RegExp(`\\b${this.escapeRegex(fullName)}\\b`, 'i');
+        const firstRegex = firstName && firstName.length > 2
+          ? new RegExp(`\\b${this.escapeRegex(firstName)}\\b`, 'i')
+          : null;
+
+        if (nameRegex.test(text) || (firstRegex && firstRegex.test(text))) {
+          return { name: member.name, memberId: member.id };
+        }
+      }
     }
 
-    for (const member of workspaceMembers) {
-      if (!member.name) continue;
-      const firstName = member.name.trim().split(/\s+/)[0];
-      const fullName = member.name.trim();
-
-      const nameRegex = new RegExp(`\\b${this.escapeRegex(fullName)}\\b`, 'i');
-      const firstRegex = firstName && firstName.length > 2
-        ? new RegExp(`\\b${this.escapeRegex(firstName)}\\b`, 'i')
-        : null;
-
-      if (nameRegex.test(text) || (firstRegex && firstRegex.test(text))) {
-        return { name: member.name, memberId: member.id };
-      }
+    // If no workspace member matched, check for explicitly mentioned name in text
+    const explicitName = this.detectName(text);
+    if (explicitName) {
+      return { name: explicitName, memberId: null };
     }
 
     return { name: null, memberId: null };
@@ -714,7 +749,16 @@ export class HeuristicProvider implements LLMProvider {
   }
 
   private detectDate(text: string): string | null {
-    // "by Friday", "by end of week", "tomorrow", "next week"
+    // 1. Explicit ISO date: YYYY-MM-DD
+    const isoMatch = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (isoMatch && isoMatch[1]) {
+      const d = new Date(isoMatch[1]);
+      if (!isNaN(d.getTime())) {
+        return isoMatch[1];
+      }
+    }
+
+    // 2. Relative dates: tomorrow, next week, end of week
     const now = new Date();
     if (/\btomorrow\b/i.test(text)) {
       const d = new Date(now.getTime() + 86400000);
@@ -729,6 +773,8 @@ export class HeuristicProvider implements LLMProvider {
       d.setDate(d.getDate() + (5 - d.getDay()));
       return d.toISOString().split('T')[0] ?? null;
     }
+
+    // 3. Weekdays
     if (/\b(friday|monday|tuesday|wednesday|thursday)\b/i.test(text)) {
       const days: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5 };
       const target = text.match(/\b(monday|tuesday|wednesday|thursday|friday)\b/i);
@@ -742,6 +788,25 @@ export class HeuristicProvider implements LLMProvider {
         }
       }
     }
+
+    // 4. Month Day (e.g., "by Oct 25", "by October 25th", "Nov 5, 2026")
+    const monthMatch = text.match(
+      /\b(?:by|due|before|on)?\s*(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/i
+    );
+    if (monthMatch && monthMatch[1] && monthMatch[2]) {
+      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const monthPrefix = monthMatch[1].slice(0, 3).toLowerCase();
+      const monthIndex = monthNames.indexOf(monthPrefix);
+      if (monthIndex !== -1) {
+        const day = parseInt(monthMatch[2], 10);
+        const year = monthMatch[3] ? parseInt(monthMatch[3], 10) : now.getFullYear();
+        const d = new Date(year, monthIndex, day);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0] ?? null;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -760,8 +825,11 @@ export class HeuristicProvider implements LLMProvider {
 
   private cleanTitle(sentence: string): string {
     let title = sentence.trim();
-    // Remove leading action verbs for a cleaner title
+    // Remove leading list markers and prefixes like "- Action:", "• Todo:", "1. Task:", "- Decided:"
+    title = title.replace(/^(?:[•\-\*]|\d+\.)\s*(?:(?:action(?:\s+item)?|todo|task|decision|agreed|question|q):\s*)?/i, '');
+    // Remove leading conversational subjects
     title = title.replace(/^(we |they |i |you |team )/i, '');
+    title = title.trim();
     // Capitalize first letter
     title = title.charAt(0).toUpperCase() + title.slice(1);
     // Truncate if too long

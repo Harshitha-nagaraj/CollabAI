@@ -8,6 +8,7 @@ import { prisma } from '../lib/prisma.js';
 import { MeetingIntelligenceService } from '../ai/services/meeting-intelligence.service.js';
 import { NotificationService } from './notification.service.js';
 import { TaskService } from './task.service.js';
+import { ForbiddenError } from '../utils/errors.js';
 
 export class MeetingService {
   /**
@@ -152,6 +153,66 @@ export class MeetingService {
   }
 
   /**
+   * Helper to format structured meeting intelligence from stored fields
+   */
+  static formatStructuredSummary(meeting: any) {
+    if (!meeting) return null;
+    const rawSummary = meeting.summary || '';
+    let source = 'Meeting Notes';
+    let overview = rawSummary;
+    let keyDiscussionPoints: string[] = [];
+
+    const sourceMatch = rawSummary.match(/\[Source:\s*([^\]]+)\]/i);
+    if (sourceMatch && sourceMatch[1]) {
+      source = sourceMatch[1].trim();
+    }
+
+    const pointsMatch = rawSummary.match(/Key Discussion Points:\s*([\s\S]*?)(?=(?:###|Decisions|Action Items|Unresolved|$))/i);
+    if (pointsMatch && pointsMatch[1]) {
+      keyDiscussionPoints = pointsMatch[1]
+        .split('\n')
+        .map((line: string) => line.replace(/^[-•*]\s*/, '').trim())
+        .filter((line: string) => line.length > 0);
+    }
+
+    overview = rawSummary
+      .replace(/\[Source:\s*[^\]]+\]\s*/i, '')
+      .replace(/Key Discussion Points:\s*[\s\S]*$/i, '')
+      .trim();
+
+    const parseJson = (val: any, fallback: any) => {
+      if (!val) return fallback;
+      if (typeof val === 'object') return val;
+      try {
+        return JSON.parse(val);
+      } catch {
+        return fallback;
+      }
+    };
+
+    return {
+      source,
+      overview: overview || 'Overview derived from meeting content.',
+      keyDiscussionPoints,
+      executiveSummary: rawSummary,
+      keyDecisions: parseJson(meeting.decisions, []),
+      actionItems: parseJson(meeting.actionItems, []),
+      pendingQuestions: parseJson(meeting.pendingQuestions, []),
+      unresolvedQuestions: parseJson(meeting.pendingQuestions, []),
+      risks: parseJson(meeting.risks, []),
+      deadlinesMentioned: parseJson(meeting.deadlines, []),
+      suggestedFollowUps: parseJson(meeting.followUps, []),
+      sentiment: parseJson(meeting.sentiment, {
+        label: 'CONSTRUCTIVE',
+        score: 80,
+        summary: `Meeting derived from ${source.toLowerCase()}.`,
+        keyMoments: [],
+      }),
+      sprintPlan: parseJson(meeting.sprintPlan, null),
+    };
+  }
+
+  /**
    * Get single meeting details with chat and AI data
    */
   static async getMeetingDetails(meetingId: string, workspaceId: string) {
@@ -177,6 +238,7 @@ export class MeetingService {
     return {
       ...meeting,
       roomName: this.generateRoomIdentifier(workspaceId, meetingId),
+      structuredSummary: this.formatStructuredSummary(meeting),
     };
   }
 
@@ -434,9 +496,16 @@ export class MeetingService {
       });
     }
 
+    const structuredSummary = this.formatStructuredSummary(updatedMeeting);
+
     return {
-      meeting: updatedMeeting,
+      meeting: {
+        ...updatedMeeting,
+        roomName: this.generateRoomIdentifier(workspaceId, meetingId),
+        structuredSummary,
+      },
       intelligence,
+      structuredSummary,
     };
   }
 
@@ -456,6 +525,14 @@ export class MeetingService {
       dueDate?: string | null;
     }>;
   }) {
+    // Verify target project exists in this workspace
+    const project = await prisma.project.findFirst({
+      where: { id: payload.projectId, workspaceId: payload.workspaceId },
+    });
+    if (!project) {
+      throw new ForbiddenError('Project does not belong to this workspace');
+    }
+
     const createdTasks = [];
 
     for (const taskItem of payload.tasks) {

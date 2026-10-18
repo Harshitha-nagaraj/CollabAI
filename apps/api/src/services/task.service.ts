@@ -90,6 +90,7 @@ export class TaskService {
           priority: input.priority,
           status: input.status,
           projectId: input.projectId,
+          workspaceId,
           creatorId,
           assigneeId: input.assigneeId ?? null,
         },

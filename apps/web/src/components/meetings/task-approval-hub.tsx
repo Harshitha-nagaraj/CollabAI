@@ -235,6 +235,7 @@ export function TaskApprovalHub({ actionItems: initialItems, members, onApproveT
           })}
         </AnimatePresence>
       </div>
+      )}
     </div>
   );
 }

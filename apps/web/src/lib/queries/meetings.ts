@@ -37,6 +37,7 @@ export interface MeetingItem {
   chatMessages?: Array<{ id: string; message: string; createdAt: string; user: { id: string; name?: string; avatarUrl?: string } }>;
   documents?: Array<{ id: string; title: string; content?: string; type: string; createdAt: string }>;
   roomName?: string;
+  structuredSummary?: any;
   createdAt: string;
 }
 

@@ -48,14 +48,45 @@ export interface ComprehensiveMeetingAnalysis {
 
 export class MeetingIntelligenceService {
   /**
+   * Helper adapter method for generating meeting intelligence
+   */
+  static async generateMeetingIntelligence(input: {
+    meetingId?: string;
+    workspaceId?: string;
+    title?: string;
+    transcript?: string;
+    notes?: string;
+    sharedNotes?: string;
+    chatMessages?: Array<{ sender: string; message: string }>;
+    workspaceMembers?: Array<{ id: string; name: string; email?: string; role?: string }>;
+    participants?: Array<{ id: string; name: string; email?: string; role?: string }>;
+  }): Promise<ComprehensiveMeetingAnalysis> {
+    const rawMembers = input.workspaceMembers || input.participants || [];
+    const participants = rawMembers.map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email || '',
+      role: m.role || 'MEMBER',
+    }));
+
+    return this.analyzeMeeting({
+      title: input.title || 'Meeting',
+      transcript: input.transcript,
+      chatMessages: input.chatMessages,
+      sharedNotes: input.notes !== undefined ? input.notes : input.sharedNotes,
+      participants,
+    });
+  }
+
+  /**
    * Process a completed meeting transcript/notes and generate full intelligence payload
    */
   static async analyzeMeeting(payload: {
     title: string;
-    transcript?: string;
-    chatMessages?: Array<{ sender: string; message: string }>;
-    sharedNotes?: string;
-    participants: Array<{ id: string; name: string; email: string; role?: string }>;
+    transcript?: string | undefined;
+    chatMessages?: Array<{ sender: string; message: string }> | undefined;
+    sharedNotes?: string | undefined;
+    participants: Array<{ id: string; name: string; email: string; role?: string | undefined }>;
   }): Promise<ComprehensiveMeetingAnalysis> {
     const hasNotes = Boolean(payload.sharedNotes && payload.sharedNotes.trim().length > 0);
     const hasTranscript = Boolean(payload.transcript && payload.transcript.trim().length > 0);
@@ -81,7 +112,7 @@ export class MeetingIntelligenceService {
     if (!hasNotes && !hasTranscript && !hasChat) {
       return {
         source,
-        overview: `No notes, transcript, or chat messages were recorded for "${payload.title}".`,
+        overview: `No meeting notes or transcript recorded for "${payload.title}".`,
         keyDiscussionPoints: [],
         executiveSummary: `[Source: No content recorded]\n\nNo notes, transcript, or chat messages were recorded for "${payload.title}". Add notes during the meeting to generate intelligence.`,
         keyDecisions: [],
@@ -338,10 +369,10 @@ CRITICAL INSTRUCTIONS:
   private static generateDeterministicIntelligence(
     payload: {
       title: string;
-      transcript?: string;
-      chatMessages?: Array<{ sender: string; message: string }>;
-      sharedNotes?: string;
-      participants: Array<{ id: string; name: string; email: string }>;
+      transcript?: string | undefined;
+      chatMessages?: Array<{ sender: string; message: string }> | undefined;
+      sharedNotes?: string | undefined;
+      participants: Array<{ id: string; name: string; email: string; role?: string | undefined }>;
     },
     source: string
   ): ComprehensiveMeetingAnalysis {
@@ -386,7 +417,7 @@ CRITICAL INSTRUCTIONS:
       status: 'TODO',
       assigneeName: item.assignee,
       assigneeId: item.suggestedAssigneeId || null,
-      assignmentJustification: item.assignmentJustification,
+      assignmentJustification: item.assignmentJustification || '',
       dueDate: item.dueDate,
       estimatedEffort: '3 pts',
       labels: item.labels || [],
