@@ -363,6 +363,7 @@ export async function approveTasks(req: Request, res: Response): Promise<void> {
 
     res.json({ message: 'Tasks approved and created successfully', tasks: createdTasks });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to approve tasks' });
+    const statusCode = error.statusCode || (error.name === 'ForbiddenError' ? 403 : 500);
+    res.status(statusCode).json({ error: error.message || 'Failed to approve tasks' });
   }
 }
