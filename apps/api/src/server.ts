@@ -23,7 +23,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 app.disable('x-powered-by');
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
 app.use(express.json());
 
 app.get('/health', (_request, response) => response.status(200).json({ status: 'ok' }));
