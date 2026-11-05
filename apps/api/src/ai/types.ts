@@ -267,22 +267,47 @@ export interface ParsedCommand {
 
 // ─── Search Types ────────────────────────────────────────────────────────────
 
+export type SearchResourceType =
+  | 'task'
+  | 'task_comment'
+  | 'project'
+  | 'meeting'
+  | 'decision'
+  | 'document';
+
+export interface SourceCitation {
+  id: string;
+  title: string;
+  type: SearchResourceType;
+  snippet: string;
+  link: string;
+  relevanceScore?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface SearchResult {
-  type: 'task' | 'document' | 'meeting';
+  type: SearchResourceType;
   id: string;
   title: string;
   snippet: string;
-  relevance: number;
+  relevance: number; // Lexical/keyword term-frequency relevance score (0-100)
+  link: string;
   metadata: Record<string, unknown>;
 }
 
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
+  sources: SourceCitation[];
   answer: string | null;
+  isGrounded: boolean;
+  facts: string[];
+  inferences: string[];
   supportingEvidence: string[];
-  relatedTasks: Array<{ id: string; title: string; status: string; priority: string }>;
-  relatedMeetings: Array<{ id: string; title: string; date: string }>;
-  relatedDocuments: Array<{ id: string; title: string }>;
+  relatedTasks: Array<{ id: string; title: string; status: string; priority: string; link?: string }>;
+  relatedMeetings: Array<{ id: string; title: string; date: string; link?: string }>;
+  relatedDocuments: Array<{ id: string; title: string; link?: string }>;
+  relatedProjects?: Array<{ id: string; title: string; status: string; link?: string }>;
+  relatedDecisions?: Array<{ id: string; title: string; category?: string | null; link?: string }>;
 }
 

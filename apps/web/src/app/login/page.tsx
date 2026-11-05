@@ -17,17 +17,28 @@ export default function LoginPage() {
 
   const loginMutation = useLogin();
   const setToken = useAppStore((s) => s.setToken);
+  const setSelectedWorkspaceId = useAppStore((s) => s.setSelectedWorkspaceId);
+
+  // Development shortcuts: only available when explicitly enabled in non-production environments
+  const showDevShortcuts =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.NEXT_PUBLIC_ENABLE_DEV_SHORTCUTS === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('workspaceId');
+        localStorage.removeItem('projectId');
+      }
+      setSelectedWorkspaceId(null);
       const data = await loginMutation.mutateAsync({ email, password });
       if (data.token) {
         setToken(data.token);
       }
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Invalid email or password. Please try again.');
     }
@@ -84,14 +95,44 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-4 pt-4 border-t border-[#E2DACF] space-y-3 text-center">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDemoLogin}
-            className="w-full py-2 text-xs font-semibold border-[#1F4D3A] text-[#1F4D3A] hover:bg-[#1F4D3A]/5"
-          >
-            ⚡ Direct Demo Login (Skip Authentication)
-          </Button>
+          {showDevShortcuts && (
+            <>
+              <div className="grid grid-cols-2 gap-2" data-testid="dev-login-shortcuts">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEmail('alpha.tester@collabai.internal');
+                    setPassword('Password123!');
+                  }}
+                  className="py-1.5 text-[11px] font-semibold border-[#1F4D3A] text-[#1F4D3A] hover:bg-[#1F4D3A]/5 cursor-pointer"
+                >
+                  🔑 Alpha Tester
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEmail('beta.tester@collabai.internal');
+                    setPassword('Password123!');
+                  }}
+                  className="py-1.5 text-[11px] font-semibold border-[#8C857B] text-[#525B56] hover:bg-[#F0EEE6] cursor-pointer"
+                >
+                  🔑 Beta Tester
+                </Button>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDemoLogin}
+                className="w-full py-2 text-xs font-semibold border-[#1F4D3A] text-[#1F4D3A] hover:bg-[#1F4D3A]/5 cursor-pointer"
+                data-testid="dev-demo-token-button"
+              >
+                ⚡ Direct Demo Login (Skip Authentication)
+              </Button>
+            </>
+          )}
 
           <p className="text-xs text-[#5A5A5A]">
             Don&apos;t have an account?{' '}

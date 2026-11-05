@@ -30,6 +30,7 @@ import { EditTaskModal } from '@/components/edit-task-modal';
 import { DeleteTaskDialog } from '@/components/delete-task-dialog';
 import { TaskForm, type TaskFormValues } from '@/components/task-form';
 import { ProjectActivityFeed } from '@/components/project-activity-feed';
+import { ProjectIntelligenceSection } from '@/components/project-intelligence-section';
 import { type WorkspaceMemberOption } from '@/components/member-selector';
 import type { Task, TaskStatus, Priority, ProjectStatus } from '@/types';
 import {
@@ -78,7 +79,7 @@ const ALL_PROJECT_STATUSES: ProjectStatus[] = [
   'CANCELLED',
 ];
 
-type ActiveTab = 'overview' | 'tasks' | 'team' | 'timeline' | 'activity';
+type ActiveTab = 'overview' | 'intelligence' | 'tasks' | 'team' | 'timeline' | 'activity';
 
 export default function ProjectDetailsPage() {
   const params = useParams();
@@ -709,6 +710,18 @@ export default function ProjectDetailsPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('intelligence')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === 'intelligence'
+                ? 'border-[#1F4D3A] text-[#1F4D3A]'
+                : 'border-transparent text-[#525B56] hover:text-[#1C2421]'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-[#1F4D3A]" />
+            <span>Intelligence</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('tasks')}
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold cursor-pointer transition-all ${
               activeTab === 'tasks'
@@ -767,6 +780,16 @@ export default function ProjectDetailsPage() {
       {/* Tab 1: Overview */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
+          {/* Smart Project Intelligence Compact Section */}
+          <ProjectIntelligenceSection
+            projectId={projectId}
+            onNavigateToTasks={(filter) => {
+              if (filter?.status) setTaskStatusFilter(filter.status as TaskStatus);
+              setActiveTab('tasks');
+            }}
+            onNavigateToTeam={() => setActiveTab('team')}
+          />
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Left Column: Scope, Status Distribution & Recent Tasks */}
             <div className="lg:col-span-2 space-y-5">
@@ -936,6 +959,15 @@ export default function ProjectDetailsPage() {
                     <span>Team Workload & Assignments ({teamWorkload.activeContributors.length})</span>
                   </Button>
                   <Button
+                    onClick={() => setActiveTab('intelligence')}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2 border-[#E2DCD2]"
+                  >
+                    <Sparkles className="h-4 w-4 text-[#1F4D3A]" />
+                    <span>Explore Project Intelligence Report</span>
+                  </Button>
+                  <Button
                     onClick={() => setActiveTab('timeline')}
                     variant="outline"
                     size="sm"
@@ -948,6 +980,20 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tab: Dedicated Intelligence */}
+      {activeTab === 'intelligence' && (
+        <div className="space-y-5">
+          <ProjectIntelligenceSection
+            projectId={projectId}
+            onNavigateToTasks={(filter) => {
+              if (filter?.status) setTaskStatusFilter(filter.status as TaskStatus);
+              setActiveTab('tasks');
+            }}
+            onNavigateToTeam={() => setActiveTab('team')}
+          />
         </div>
       )}
 

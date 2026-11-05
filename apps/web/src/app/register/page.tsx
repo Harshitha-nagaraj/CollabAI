@@ -19,6 +19,11 @@ export default function RegisterPage() {
   const registerMutation = useRegister();
   const setToken = useAppStore((s) => s.setToken);
 
+  // Development shortcuts: only available when explicitly enabled in non-production environments
+  const showDevShortcuts =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.NEXT_PUBLIC_ENABLE_DEV_SHORTCUTS === 'true';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -93,14 +98,17 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-4 pt-4 border-t border-[#E2DACF] space-y-3 text-center">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleDemoRegister}
-            className="w-full py-2 text-xs font-semibold border-[#1F4D3A] text-[#1F4D3A] hover:bg-[#1F4D3A]/5"
-          >
-            ⚡ Direct Demo Entry (Skip Registration)
-          </Button>
+          {showDevShortcuts && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDemoRegister}
+              className="w-full py-2 text-xs font-semibold border-[#1F4D3A] text-[#1F4D3A] hover:bg-[#1F4D3A]/5"
+              data-testid="dev-demo-register-button"
+            >
+              ⚡ Direct Demo Entry (Skip Registration)
+            </Button>
+          )}
 
           <p className="text-xs text-[#5A5A5A]">
             Already have an account?{' '}

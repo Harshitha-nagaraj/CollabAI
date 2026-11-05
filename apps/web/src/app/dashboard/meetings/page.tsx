@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useWorkspaceDetails, useWorkspaces } from '@/lib/queries/workspaces';
 import { useCurrentUser } from '@/lib/queries/auth';
+import { useProjects } from '@/lib/queries/projects';
 import {
   useWorkspaceMeetings,
   useProcessMeetingIntelligence,
@@ -37,6 +38,27 @@ export default function MeetingsPage() {
   const { data: wsData } = useWorkspaceDetails(selectedWorkspaceId);
   const { data: wsListData } = useWorkspaces();
   const workspaces = wsListData?.workspaces || [];
+
+  const { data: projectsData } = useProjects(selectedWorkspaceId);
+  const projects = projectsData?.projects || [];
+  const [targetProjectId, setTargetProjectId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (workspaces.length > 0) {
+      const exists = workspaces.some((w) => w.id === selectedWorkspaceId);
+      if (!selectedWorkspaceId || !exists) {
+        setSelectedWorkspaceId(workspaces[0]!.id);
+      }
+    }
+  }, [selectedWorkspaceId, workspaces, setSelectedWorkspaceId]);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      setTargetProjectId(selectedProjectId);
+    } else if (projects.length > 0 && !targetProjectId) {
+      setTargetProjectId(projects[0]!.id);
+    }
+  }, [selectedProjectId, projects, targetProjectId]);
 
   const { data: userData } = useCurrentUser(!!token);
   const currentUserId = userData?.user?.id;
@@ -266,7 +288,12 @@ export default function MeetingsPage() {
         if (current) setActiveMeeting(current);
       }
     } catch (err: any) {
-      toast(err.message || 'Failed to join meeting', 'error');
+      const msg = err?.message || 'Failed to join meeting';
+      if (err?.isNetworkError || msg.includes('Unable to reach') || msg.includes('Failed to fetch')) {
+        toast('Connected to conference call. Note: Attendance could not be synced to PostgreSQL because the API server is unreachable.', 'info');
+      } else {
+        toast(msg, 'error');
+      }
     }
   };
 
@@ -284,7 +311,12 @@ export default function MeetingsPage() {
         if (current) setActiveMeeting(current);
       }
     } catch (err: any) {
-      toast(err.message || 'Failed to leave meeting', 'error');
+      const msg = err?.message || 'Failed to leave meeting';
+      if (err?.isNetworkError || msg.includes('Unable to reach') || msg.includes('Failed to fetch')) {
+        toast('You left the conference call. Note: Attendance sync to PostgreSQL failed because the API server is unreachable.', 'info');
+      } else {
+        toast(msg, 'error');
+      }
     }
   };
 
@@ -328,9 +360,10 @@ export default function MeetingsPage() {
     }
   };
 
-  const handleBatchApproveTasks = async (approvedTasks: any[]) => {
-    if (!selectedProjectId) {
-      toast('Please select a target Project in the sidebar first', 'error');
+  const handleBatchApproveTasks = async (approvedTasks: any[], customProjectId?: string) => {
+    const finalProjectId = customProjectId || targetProjectId || selectedProjectId;
+    if (!finalProjectId) {
+      toast('Please select a target Project before approving tasks', 'error');
       return;
     }
 
@@ -338,7 +371,7 @@ export default function MeetingsPage() {
       await approveTasks.mutateAsync({
         meetingId: activeMeeting?.id || 'demo-m',
         workspaceId: selectedWorkspaceId || 'demo-ws',
-        projectId: selectedProjectId,
+        projectId: finalProjectId,
         tasks: approvedTasks.map((t) => ({
           title: t.title,
           description: t.description,
@@ -351,8 +384,7 @@ export default function MeetingsPage() {
       setActiveWorkflowStep('dashboard');
       toast(`Successfully created ${approvedTasks.length} task(s) in Kanban board!`, 'success');
     } catch (err: any) {
-      toast(err.message || 'Tasks approved and injected to Kanban', 'success');
-      setActiveWorkflowStep('dashboard');
+      toast(err.message || 'Failed to approve tasks', 'error');
     }
   };
 
@@ -465,6 +497,7 @@ export default function MeetingsPage() {
               }}
               roomName={activeMeeting.roomName}
               participants={membersToUse.map((m) => ({ id: m.id, name: m.name, role: 'Workspace Member' }))}
+              initialTranscript={activeMeeting.transcript || ''}
               initialNotes={activeMeeting.description || ''}
               onSaveNotes={handleSaveNotes}
               isNotesSaving={updateMeetingNotes.isPending}
@@ -539,6 +572,9 @@ export default function MeetingsPage() {
           <TaskApprovalHub
             actionItems={intelligenceResult?.actionItems || []}
             members={membersToUse}
+            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+            selectedProjectId={targetProjectId || selectedProjectId}
+            onSelectProject={setTargetProjectId}
             onApproveTasks={handleBatchApproveTasks}
             isSubmitting={approveTasks.isPending}
           />

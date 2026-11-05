@@ -451,9 +451,13 @@ export const applyWorkloadReassignment = async (req: Request, res: Response) => 
 
 export const aiSearch = async (req: Request, res: Response) => {
   try {
-    const { query, workspaceId } = req.body;
-    const userId = req.user!.id;
+    const query = (req.body?.query ?? req.body?.q ?? req.query?.q ?? req.query?.query) as string;
+    const workspaceId = (req.body?.workspaceId ?? req.query?.workspaceId) as string;
+    const userId = req.user?.id;
 
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ success: false, error: 'Query is required' });
     }
@@ -461,14 +465,18 @@ export const aiSearch = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Workspace ID is required' });
     }
 
+    logger.info(`[AI_SEARCH_REQUEST] userId=${userId} query="${query}" workspaceId="${workspaceId}"`);
+
     const membership = await prisma.membership.findUnique({
       where: { userId_workspaceId: { userId, workspaceId } },
     });
     if (!membership) {
-      return res.status(403).json({ success: false, error: 'Not a member of this workspace' });
+      logger.warn(`[AI_SEARCH_FORBIDDEN] userId=${userId} workspaceId=${workspaceId}`);
+      return res.status(403).json({ success: false, error: 'Not a member of this workspace. You do not have access to this workspace' });
     }
 
     const results = await SearchEngine.search(query, workspaceId);
+    logger.info(`[AI_SEARCH_SUCCESS] resultsCount=${results.results?.length} sourcesCount=${results.sources?.length} isGrounded=${results.isGrounded} answer="${results.answer}"`);
     return res.status(200).json({ success: true, data: results });
   } catch (error) {
     logger.error('aiSearch error:', error);

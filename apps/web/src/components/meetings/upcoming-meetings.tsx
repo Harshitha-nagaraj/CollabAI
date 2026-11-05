@@ -464,15 +464,16 @@ export function UpcomingMeetings({
                       size="sm"
                       onClick={() => onSelectMeeting(meeting)}
                       data-testid={`open-in-room-btn-${meeting.id}`}
+                      data-meeting-id={meeting.id}
                       className={`h-7 px-2.5 text-xs font-semibold gap-1 ${
                         isSelected
                           ? 'bg-[#1F4D3A] text-white hover:bg-[#163E32]'
                           : 'border-[#1F4D3A]/30 text-[#1F4D3A] hover:bg-[#1F4D3A]/10'
                       }`}
-                      title={isSelected ? 'Meeting currently loaded in room - click to view' : 'Load this meeting into the Live Meeting Room'}
+                      title={isSelected ? 'Meeting currently loaded in room - click to view' : 'Join or open this meeting in the Live Meeting Room'}
                     >
                       <Video className="h-3 w-3" />
-                      {isSelected ? 'Open in Room (Active)' : 'Open in Room'}
+                      {isSelected ? 'Open in Room (Active)' : 'Join Meeting'}
                     </Button>
                   </div>
                 </div>

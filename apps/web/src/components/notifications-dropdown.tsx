@@ -9,6 +9,7 @@ import {
   useMarkAllNotificationsRead,
   type NotificationItem,
 } from '@/lib/queries/notifications';
+import { useWorkspaces } from '@/lib/queries/workspaces';
 import { useAppStore } from '@/lib/store';
 import {
   Bell,
@@ -86,7 +87,13 @@ function getNotificationIcon(type: string) {
 export function NotificationsDropdown() {
   const router = useRouter();
   const { selectedWorkspaceId } = useAppStore();
-  const { data: notifications = [] as NotificationItem[] } = useUserNotifications(selectedWorkspaceId);
+  const { data: wsData } = useWorkspaces();
+  const userWorkspaces = wsData?.workspaces || [];
+  const activeWorkspaceId = userWorkspaces.some((w) => w.id === selectedWorkspaceId)
+    ? selectedWorkspaceId
+    : userWorkspaces[0]?.id || null;
+
+  const { data: notifications = [] as NotificationItem[] } = useUserNotifications(activeWorkspaceId);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
@@ -96,8 +103,8 @@ export function NotificationsDropdown() {
   const unreadCount = notificationList.filter((n) => !n.isRead).length;
 
   const handleNotificationClick = (item: NotificationItem) => {
-    if (!item.isRead && selectedWorkspaceId) {
-      markRead.mutate({ notificationId: item.id, workspaceId: selectedWorkspaceId });
+    if (!item.isRead && activeWorkspaceId) {
+      markRead.mutate({ notificationId: item.id, workspaceId: activeWorkspaceId });
     }
 
     if (item.link) {
@@ -108,8 +115,8 @@ export function NotificationsDropdown() {
 
   const handleMarkAllRead = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!selectedWorkspaceId || unreadCount === 0) return;
-    markAllRead.mutate({ workspaceId: selectedWorkspaceId });
+    if (!activeWorkspaceId || unreadCount === 0) return;
+    markAllRead.mutate({ workspaceId: activeWorkspaceId });
   };
 
   return (

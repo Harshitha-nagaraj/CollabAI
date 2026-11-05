@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Project, ProjectDetailsResponse, ProjectActivitiesResponse } from '@/types';
+import type { Project, ProjectDetailsResponse, ProjectActivitiesResponse, ProjectIntelligence } from '@/types';
 
 export function useProjects(workspaceId: string | null, search?: string, status?: string) {
   const queryParams = new URLSearchParams();
@@ -24,6 +24,15 @@ export function useProjectDetails(projectId: string | null) {
     queryFn: () => api<ProjectDetailsResponse>(`/projects/${projectId}`),
     enabled: !!projectId,
     staleTime: 30_000,
+  });
+}
+
+export function useProjectIntelligence(projectId: string | null) {
+  return useQuery({
+    queryKey: ['project-intelligence', projectId],
+    queryFn: () => api<ProjectIntelligence>(`/projects/${projectId}/intelligence`),
+    enabled: !!projectId,
+    staleTime: 15_000,
   });
 }
 

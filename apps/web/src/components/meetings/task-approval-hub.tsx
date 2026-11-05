@@ -9,11 +9,22 @@ import { CheckCircle2, Zap, Edit2, Check, Plus, Calendar } from 'lucide-react';
 interface Props {
   actionItems: ActionItem[];
   members: Array<{ id: string; name: string; email: string }>;
-  onApproveTasks: (approvedTasks: ActionItem[]) => void;
+  onApproveTasks: (approvedTasks: ActionItem[], projectId?: string) => void;
   isSubmitting?: boolean;
+  projects?: Array<{ id: string; name: string }>;
+  selectedProjectId?: string | null;
+  onSelectProject?: (projectId: string) => void;
 }
 
-export function TaskApprovalHub({ actionItems: initialItems, members, onApproveTasks, isSubmitting }: Props) {
+export function TaskApprovalHub({
+  actionItems: initialItems,
+  members,
+  onApproveTasks,
+  isSubmitting,
+  projects = [],
+  selectedProjectId,
+  onSelectProject,
+}: Props) {
   const [items, setItems] = useState<ActionItem[]>(
     initialItems.map((item, idx) => ({
       ...item,
@@ -50,7 +61,7 @@ export function TaskApprovalHub({ actionItems: initialItems, members, onApproveT
 
   const handleFinalSubmit = () => {
     const approvedTasks = items.filter((i) => i.approved);
-    onApproveTasks(approvedTasks);
+    onApproveTasks(approvedTasks, selectedProjectId || undefined);
   };
 
   return (
@@ -69,14 +80,34 @@ export function TaskApprovalHub({ actionItems: initialItems, members, onApproveT
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {projects && projects.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="target-project-select" className="text-xs font-semibold text-[#5F6863]">
+                Target Project:
+              </label>
+              <select
+                id="target-project-select"
+                value={selectedProjectId || ''}
+                onChange={(e) => onSelectProject?.(e.target.value)}
+                className="rounded-lg border border-[#E4DED4] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#252D2A] shadow-2xs focus:outline-none focus:border-[#205743] cursor-pointer"
+              >
+                <option value="" disabled>Select project...</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <span className="text-xs font-semibold text-[#205743]">
             {approvedCount} of {items.length} Approved
           </span>
           <Button
             onClick={handleFinalSubmit}
             loading={isSubmitting}
-            disabled={approvedCount === 0}
+            disabled={approvedCount === 0 || (projects.length > 0 && !selectedProjectId)}
             className="bg-[#205743] hover:bg-[#163E32] text-white text-xs shadow-xs"
           >
             Approve & Inject to Kanban ({approvedCount})

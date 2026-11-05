@@ -122,3 +122,30 @@ android/app/build/
 android/.gradle/
 android/local.properties
 .metro/
+
+# ==========================================
+# 10. PYTHON & LOCAL AUDIO PROCESSING
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Local temporary audio upload directories and sample media
+storage/
+temp/
+uploads/
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.webm
+*.flac
+*.aac

@@ -81,6 +81,29 @@ export class ProjectController {
   }
 
   /**
+   * GET /api/v1/projects/:id/intelligence
+   */
+  public static async getIntelligence(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = await ProjectIdParamSchema.parseAsync(req.params);
+
+      const intelligence = await ProjectService.getProjectIntelligence(userId, id);
+
+      res.status(200).json({
+        success: true,
+        data: intelligence,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PATCH /api/v1/projects/:id
    */
   public static async update(

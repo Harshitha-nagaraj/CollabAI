@@ -112,7 +112,65 @@ export class KnowledgeService {
    * Execute Natural Language Q&A over Workspace Knowledge
    */
   static async semanticSearch(query: string, workspaceId: string) {
-    // Populate vector store from DB if empty
+    // Populate vector store from DB with all workspace entities
+    const dbTasks = await prisma.task.findMany({
+      where: { OR: [{ workspaceId }, { project: { workspaceId } }] },
+      include: { project: { select: { id: true, name: true, workspaceId: true } }, assignee: { select: { name: true } } },
+    });
+    for (const t of dbTasks) {
+      VectorStoreProvider.indexDocument({
+        id: t.id,
+        workspaceId: t.workspaceId || t.project?.workspaceId || workspaceId,
+        projectId: t.projectId,
+        title: t.title,
+        content: `${t.title} - ${t.description || ''} status: ${t.status} priority: ${t.priority} assignee: ${t.assignee?.name || 'unassigned'}`,
+        type: 'TASK',
+        tags: [t.status, t.priority],
+      });
+    }
+
+    const dbComments = await prisma.taskComment.findMany({
+      where: { task: { OR: [{ workspaceId }, { project: { workspaceId } }] } },
+      include: { task: { select: { id: true, title: true, projectId: true } }, author: { select: { name: true, email: true } } },
+    });
+    for (const c of dbComments) {
+      VectorStoreProvider.indexDocument({
+        id: c.id,
+        workspaceId,
+        projectId: c.task.projectId,
+        title: `Comment on ${c.task.title}`,
+        content: `${c.content} (by ${c.author?.name || c.author?.email || 'team member'})`,
+        type: 'TASK_COMMENT',
+        tags: ['COMMENT'],
+      });
+    }
+
+    const dbProjects = await prisma.project.findMany({ where: { workspaceId } });
+    for (const p of dbProjects) {
+      VectorStoreProvider.indexDocument({
+        id: p.id,
+        workspaceId: p.workspaceId,
+        projectId: p.id,
+        title: p.name,
+        content: `${p.name} - ${p.description || ''} status: ${p.status}`,
+        type: 'PROJECT',
+        tags: [p.status],
+      });
+    }
+
+    const dbMeetings = await prisma.meeting.findMany({ where: { workspaceId } });
+    for (const m of dbMeetings) {
+      VectorStoreProvider.indexDocument({
+        id: m.id,
+        workspaceId: m.workspaceId,
+        projectId: null,
+        title: m.title,
+        content: `${m.title} - ${m.summary || ''} decisions: ${m.decisions || ''} description: ${m.description || ''}`,
+        type: 'MEETING',
+        tags: [m.status],
+      });
+    }
+
     const dbDecisions = await prisma.decision.findMany({ where: { workspaceId } });
     for (const d of dbDecisions) {
       VectorStoreProvider.indexDocument({
@@ -120,7 +178,7 @@ export class KnowledgeService {
         workspaceId: d.workspaceId,
         projectId: d.projectId,
         title: d.title,
-        content: `${d.title} - ${d.description}`,
+        content: `${d.title} - ${d.description || ''} decision: ${d.decision || ''}`,
         type: 'DECISION',
         tags: [d.type, d.category].filter((t): t is string => Boolean(t)),
       });

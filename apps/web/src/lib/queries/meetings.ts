@@ -38,7 +38,47 @@ export interface MeetingItem {
   documents?: Array<{ id: string; title: string; content?: string; type: string; createdAt: string }>;
   roomName?: string;
   structuredSummary?: any;
+  followThrough?: MeetingFollowThroughData | null;
   createdAt: string;
+}
+
+export interface MeetingFollowThroughTask {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  isOverdue: boolean;
+  projectId: string;
+  projectName: string | null;
+  assignee: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MeetingFollowThroughData {
+  meetingId: string;
+  workspaceId: string;
+  metrics: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    pending: number;
+    completionRate: number;
+    overdueCount: number;
+  };
+  tasks: {
+    pending: MeetingFollowThroughTask[];
+    inProgress: MeetingFollowThroughTask[];
+    completed: MeetingFollowThroughTask[];
+    all: MeetingFollowThroughTask[];
+  };
 }
 
 export interface MeetingAccessInfo {
@@ -278,6 +318,126 @@ export function useApproveMeetingTasks() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['notifications', variables.workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-follow-through', variables.meetingId, variables.workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-details', variables.meetingId, variables.workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', variables.workspaceId] });
+    },
+  });
+}
+
+export function useMeetingFollowThrough(meetingId: string | null, workspaceId: string | null) {
+  return useQuery<MeetingFollowThroughData>({
+    queryKey: ['meeting-follow-through', meetingId, workspaceId],
+    queryFn: async () => {
+      if (!meetingId || !workspaceId) throw new Error('Missing parameters');
+      return api<MeetingFollowThroughData>(`/meetings/${meetingId}/follow-through?workspaceId=${workspaceId}`);
+    },
+    enabled: !!meetingId && !!workspaceId,
+    staleTime: 5000,
+  });
+}
+
+export function useSendMeetingFollowUpReminders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      meetingId,
+      workspaceId,
+    }: {
+      meetingId: string;
+      workspaceId: string;
+    }) => {
+      return api<{
+        success: boolean;
+        meetingId: string;
+        sentCount: number;
+        throttledCount: number;
+        totalEligible: number;
+        message: string;
+      }>(`/meetings/${meetingId}/follow-up-reminders`, {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId }),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', variables.workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-follow-through', variables.meetingId, variables.workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-details', variables.meetingId, variables.workspaceId] });
+    },
+  });
+}
+
+export interface AudioTranscriptionResult {
+  message: string;
+  success: boolean;
+  meeting: MeetingItem;
+  transcription: {
+    transcript: string;
+    duration?: number;
+    language?: string;
+    model?: string;
+    segmentsCount?: number;
+    segments?: Array<{ start: number; end: number; text: string }>;
+  };
+}
+
+export function useUploadMeetingAudio() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      meetingId,
+      workspaceId,
+      file,
+      consentConfirmed,
+      model,
+      language,
+    }: {
+      meetingId: string;
+      workspaceId: string;
+      file: File;
+      consentConfirmed: boolean;
+      model?: string;
+      language?: string;
+    }) => {
+      const formData = new FormData();
+      formData.append('audio', file);
+      formData.append('workspaceId', workspaceId);
+      formData.append('consentConfirmed', String(consentConfirmed));
+      if (model) formData.append('model', model);
+      if (language) formData.append('language', language);
+
+      return api<AudioTranscriptionResult>(`/meetings/${meetingId}/transcript/audio`, {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['meeting-details', variables.meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', variables.workspaceId] });
+    },
+  });
+}
+
+export function useUpdateMeetingTranscript() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      meetingId,
+      workspaceId,
+      transcript,
+    }: {
+      meetingId: string;
+      workspaceId: string;
+      transcript: string;
+    }) => {
+      return api<{ message: string; meeting: MeetingItem }>(`/meetings/${meetingId}/transcript`, {
+        method: 'PUT',
+        body: JSON.stringify({ workspaceId, transcript }),
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['meeting-details', variables.meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', variables.workspaceId] });
     },
   });
 }

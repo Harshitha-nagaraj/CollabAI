@@ -7,6 +7,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { NotificationService } from '../services/notification.service.js';
 import { BadRequestError } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 
 export async function getUserNotifications(
   req: Request,
@@ -21,6 +22,7 @@ export async function getUserNotifications(
       throw new BadRequestError('workspaceId query parameter is required.');
     }
 
+    logger.info(`[NOTIFICATIONS_CHECK] userId=${userId} email=${req.user?.email} workspaceId=${workspaceId}`);
     // Verify requesting user is an active member of this workspace
     await NotificationService.verifyMembership(userId, workspaceId);
 

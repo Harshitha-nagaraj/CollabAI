@@ -12,6 +12,7 @@ router.use(requireAuth);
 router.get('/', ProjectController.list);
 router.post('/', validateBody(CreateProjectSchema), ProjectController.create);
 router.get('/:id', ProjectController.getDetails);
+router.get('/:id/intelligence', ProjectController.getIntelligence);
 router.get('/:id/activity', ProjectController.listActivity);
 router.patch('/:id', validateBody(UpdateProjectSchema), ProjectController.update);
 router.delete('/:id', ProjectController.delete);

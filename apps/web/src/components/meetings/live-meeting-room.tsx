@@ -20,8 +20,10 @@ import {
   AlertTriangle,
   ArrowLeft,
   X,
+  Mic,
 } from 'lucide-react';
 import { JitsiMeetingFrame } from './jitsi-meeting-frame';
+import { RecordedAudioTranscription } from './recorded-audio-transcription';
 import { useMeetingAccess } from '@/lib/queries/meetings';
 
 interface Participant {
@@ -68,6 +70,7 @@ export function LiveMeetingRoom({
   currentUser,
   roomName: propRoomName,
   participants: initialParticipants = [],
+  initialTranscript = '',
   initialNotes = '',
   onSaveNotes,
   isNotesSaving = false,
@@ -109,7 +112,7 @@ export function LiveMeetingRoom({
   ]);
   const [chatInput, setChatInput] = useState('');
   const [sharedNotes, setSharedNotes] = useState(initialNotes || '');
-  const [customTranscriptInput, setCustomTranscriptInput] = useState('');
+  const [customTranscriptInput, setCustomTranscriptInput] = useState(initialTranscript || '');
   const [notesSaveStatus, setNotesSaveStatus] = useState<string | null>(null);
   const [livePeersCount, setLivePeersCount] = useState<number>(1);
 
@@ -117,6 +120,11 @@ export function LiveMeetingRoom({
   useEffect(() => {
     setSharedNotes(initialNotes || '');
   }, [meetingId, initialNotes]);
+
+  // Sync initial transcript whenever meetingId or initialTranscript change
+  useEffect(() => {
+    setCustomTranscriptInput(initialTranscript || '');
+  }, [meetingId, initialTranscript]);
 
   const handleSendChat = () => {
     if (!chatInput.trim()) return;
@@ -346,7 +354,7 @@ export function LiveMeetingRoom({
               { id: 'notes', label: 'Notes', icon: <FileText className="w-3.5 h-3.5" /> },
               { id: 'chat', label: 'Chat', icon: <MessageSquare className="w-3.5 h-3.5" /> },
               { id: 'people', label: 'Attendees', icon: <Users className="w-3.5 h-3.5" /> },
-              { id: 'transcript', label: 'AI Input', icon: <Sparkles className="w-3.5 h-3.5" /> },
+              { id: 'transcript', label: 'Audio & AI', icon: <Mic className="w-3.5 h-3.5" /> },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -485,52 +493,37 @@ export function LiveMeetingRoom({
               </div>
             )}
 
-            {/* TAB 4: TRANSCRIPT & AI SUMMARY INPUT */}
+            {/* TAB 4: RECORDED AUDIO TRANSCRIPTION & AI PIPELINE */}
             {activeTab === 'transcript' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-[#E4DED4] pb-2">
-                  <span className="text-xs font-bold text-[#1F4D3A] uppercase tracking-wider">Meeting Intelligence Input</span>
-                  <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                    Low-Resource Mode
-                  </span>
-                </div>
+              <div className="space-y-4">
+                <RecordedAudioTranscription
+                  meetingId={meetingId}
+                  workspaceId={workspaceId || ''}
+                  currentTranscript={customTranscriptInput}
+                  onTranscriptChange={setCustomTranscriptInput}
+                  onTranscriptSaved={(newTranscript) => {
+                    setCustomTranscriptInput(newTranscript);
+                  }}
+                  disabled={isProcessing}
+                />
 
-                <div className="rounded-lg bg-[#F7F5F0] p-2.5 text-[11px] text-[#525B56] flex items-start gap-2 border border-[#E2DCD2]">
-                  <Info className="w-4 h-4 text-[#1F4D3A] shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-[#1F4D3A]">Continuous In-Browser Transcription Paused</p>
-                    <p className="mt-0.5 leading-relaxed text-[#5F6863]">
-                      To prevent CPU throttling and battery drain on your laptop, continuous in-browser speech-to-text models are kept disabled during the call.
+                <div className="border-t border-[#E4DED4] pt-3">
+                  {isHost ? (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsEndConfirmOpen(true)}
+                      loading={isProcessing}
+                      className="w-full bg-[#1F4D3A] text-white hover:bg-[#163E32] text-xs font-semibold py-2"
+                      data-testid="end-meeting-with-transcript-btn"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" /> End Meeting & Run AI Engine with Transcript & Notes
+                    </Button>
+                  ) : (
+                    <p className="text-[11px] text-center text-[#5F6863] italic py-2">
+                      Only the meeting host ({hostDisplayName}) can run the AI Engine and end the meeting for all attendees.
                     </p>
-                  </div>
+                  )}
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-[#252D2A]">
-                    Optional: Paste Meeting Transcript or Bullet Points
-                  </label>
-                  <textarea
-                    value={customTranscriptInput}
-                    onChange={(e) => setCustomTranscriptInput(e.target.value)}
-                    placeholder="If you have an external transcript or meeting notes, paste them here. Otherwise, the AI engine uses your shared notes and chat log."
-                    className="w-full min-h-[160px] rounded-lg border border-[#E4DED4] bg-[#F7F5F0] p-2.5 text-xs text-[#252D2A] focus:outline-none focus:border-[#1F4D3A] focus:bg-white font-mono leading-relaxed"
-                  />
-                </div>
-
-                {isHost ? (
-                  <Button
-                    size="sm"
-                    onClick={() => setIsEndConfirmOpen(true)}
-                    loading={isProcessing}
-                    className="w-full bg-[#1F4D3A] text-white hover:bg-[#163E32] text-xs font-semibold py-2"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5" /> End Meeting & Run AI Engine
-                  </Button>
-                ) : (
-                  <p className="text-[11px] text-center text-[#5F6863] italic py-2">
-                    Only the meeting host ({hostDisplayName}) can run the AI Engine and end the meeting for all attendees.
-                  </p>
-                )}
               </div>
             )}
           </div>

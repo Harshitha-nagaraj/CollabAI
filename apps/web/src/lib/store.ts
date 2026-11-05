@@ -20,12 +20,21 @@ export const useAppStore = create<AppState>((set) => ({
   selectedProjectId: null,
 
   setToken: (token) => {
+    const previousToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
       localStorage.setItem('token', token);
     } else {
       localStorage.removeItem('token');
     }
-    set({ token });
+    if (token !== previousToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('workspaceId');
+        localStorage.removeItem('projectId');
+      }
+      set({ token, selectedWorkspaceId: null, selectedProjectId: null });
+    } else {
+      set({ token });
+    }
   },
 
   setSelectedWorkspaceId: (id) => {
@@ -48,11 +57,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   hydrate: () => {
-    let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token && typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-      token = 'demo-token';
-      localStorage.setItem('token', token);
-    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const workspaceId = typeof window !== 'undefined' ? localStorage.getItem('workspaceId') : null;
     const projectId = typeof window !== 'undefined' ? localStorage.getItem('projectId') : null;
     set({

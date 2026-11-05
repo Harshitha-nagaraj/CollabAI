@@ -18,7 +18,12 @@ import {
   postChatMessage,
   processMeetingIntelligence,
   approveTasks,
+  uploadMeetingAudio,
+  updateMeetingTranscript,
+  getMeetingFollowThrough,
+  sendMeetingFollowUpReminders,
 } from '../controllers/meeting.controller.js';
+import { audioUploadMiddleware } from '../middleware/audio-upload.js';
 
 const router = Router();
 
@@ -28,10 +33,14 @@ router.post('/', createMeeting);
 router.get('/', getMeetings);
 router.get('/:id', getMeetingDetails);
 router.get('/:id/access', getMeetingAccessInfo);
+router.get('/:id/follow-through', getMeetingFollowThrough);
+router.post('/:id/follow-up-reminders', sendMeetingFollowUpReminders);
 router.post('/:id/join', joinMeeting);
 router.post('/:id/leave', leaveMeeting);
 router.get('/:id/participants', getMeetingParticipants);
 router.put('/:id/notes', updateMeetingNotes);
+router.post('/:id/transcript/audio', audioUploadMiddleware.single('audio'), uploadMeetingAudio);
+router.put('/:id/transcript', updateMeetingTranscript);
 router.post('/:id/chat', postChatMessage);
 router.post('/:id/process', processMeetingIntelligence);
 router.post('/:id/approve-tasks', approveTasks);

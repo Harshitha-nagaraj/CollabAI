@@ -167,3 +167,82 @@ export interface ApiResponse<T = unknown> {
     details?: { field: string; message: string }[];
   };
 }
+
+export interface ProjectIntelligence {
+  projectId: string;
+  projectName: string;
+  workspaceId: string;
+  projectStatus: ProjectStatus;
+  health: {
+    status: 'HEALTHY' | 'NEEDS_ATTENTION' | 'AT_RISK';
+    score: number;
+    metrics: {
+      totalTasks: number;
+      completedTasks: number;
+      inProgressTasks: number;
+      todoTasks: number;
+      openTasks: number;
+      overdueTasks: number;
+      blockedTasks: number;
+      stalledTasks: number;
+      unassignedTasks: number;
+      completionRate: number;
+      targetDueDate: string | null;
+      isDeliveryOverdue: boolean;
+    };
+    explainability: Array<{
+      factor: string;
+      impact: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
+      message: string;
+      scoreDelta?: number;
+    }>;
+  };
+  risks: Array<{
+    id: string;
+    type: 'OVERDUE' | 'BLOCKED' | 'STALLED' | 'UNASSIGNED' | 'MEETING_ACTION' | 'DELIVERY';
+    severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    title: string;
+    description: string;
+    affectedCount: number;
+    items: Array<{
+      id: string;
+      title: string;
+      priority?: Priority;
+      dueDate?: string | null;
+      assigneeName?: string;
+      details?: string;
+    }>;
+  }>;
+  workload: {
+    totalAssignees: number;
+    overloadedCount: number;
+    members: Array<{
+      userId: string | null;
+      name: string;
+      email: string | null;
+      avatarUrl?: string | null;
+      openTasks: number;
+      inProgressTasks: number;
+      urgentOrHighTasks: number;
+      overdueTasks: number;
+      totalEstimatedHours: number;
+      storyPoints: number;
+      status: 'BALANCED' | 'MODERATE' | 'HEAVY' | 'OVERLOADED';
+      overloadReasons: string[];
+    }>;
+    unassignedWork: {
+      openTasks: number;
+      urgentOrHighTasks: number;
+      overdueTasks: number;
+    };
+  };
+  recommendations: Array<{
+    id: string;
+    category: 'DEADLINES' | 'ASSIGNMENT' | 'BLOCKERS' | 'WORKLOAD' | 'MEETINGS' | 'PROCESS';
+    priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    title: string;
+    action: string;
+    rationale: string;
+    suggestedSteps: string[];
+  }>;
+}

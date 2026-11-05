@@ -24,8 +24,13 @@ export async function requireAuth(
       throw new UnauthorizedError('Authentication token required');
     }
 
+    // Explicit opt-in demo authentication: Strictly disabled by default,
+    // and forbidden in production mode under any circumstances.
     if (token === 'demo-token') {
-      if (env.ALLOW_DEMO_AUTH && env.NODE_ENV !== 'production') {
+      const isExplicitlyOptedIn = env.ALLOW_DEMO_AUTH === true;
+      const isNonProduction = env.NODE_ENV !== 'production';
+
+      if (isExplicitlyOptedIn && isNonProduction) {
         const demoUserId = '00000000-0000-0000-0000-000000000001';
         let demoUser = await prisma.user.findUnique({
           where: { id: demoUserId },

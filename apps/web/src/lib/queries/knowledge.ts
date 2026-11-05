@@ -23,8 +23,10 @@ export interface DecisionRecord {
 export interface SemanticSearchResult {
   query: string;
   answer: string;
-  confidenceScore: number;
+  relevanceScore?: number;
+  confidenceScore?: number;
   supportingEvidence: string[];
+  sources?: Array<{ id: string; title: string; type: string; snippet: string; link: string }>;
   relatedMeetings: Array<{ id: string; title: string; type: string; snippet: string; link: string }>;
   relatedDocuments: Array<{ id: string; title: string; type: string; snippet: string; link: string }>;
   relatedTasks: Array<{ id: string; title: string; type: string; snippet: string; link: string }>;

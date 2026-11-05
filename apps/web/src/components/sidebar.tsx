@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/lib/store';
 import { useWorkspaces, useCreateWorkspace } from '@/lib/queries/workspaces';
 import { useCurrentUser } from '@/lib/queries/auth';
@@ -183,11 +184,20 @@ const navGroups: NavGroup[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const selectedWorkspaceId = useAppStore((s) => s.selectedWorkspaceId);
   const setSelectedWorkspaceId = useAppStore((s) => s.setSelectedWorkspaceId);
   const logout = useAppStore((s) => s.logout);
   const token = useAppStore((s) => s.token);
   const { toast } = useToast();
+
+  const queryClient = useQueryClient();
+
+  const handleLogout = () => {
+    queryClient.clear();
+    logout();
+    window.location.href = '/login';
+  };
 
   const { data: wsData, refetch: refetchWs } = useWorkspaces();
   const { data: userData } = useCurrentUser(!!token);
@@ -200,8 +210,11 @@ export function Sidebar() {
   const workspaces = useMemo(() => wsData?.workspaces || [], [wsData?.workspaces]);
 
   useEffect(() => {
-    if (!selectedWorkspaceId && workspaces.length > 0) {
-      setSelectedWorkspaceId(workspaces[0].id);
+    if (workspaces.length > 0) {
+      const exists = workspaces.some((w) => w.id === selectedWorkspaceId);
+      if (!selectedWorkspaceId || !exists) {
+        setSelectedWorkspaceId(workspaces[0].id);
+      }
     }
   }, [selectedWorkspaceId, workspaces, setSelectedWorkspaceId]);
 
@@ -338,7 +351,7 @@ export function Sidebar() {
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="rounded-lg p-1.5 text-[#525B56] hover:bg-[#E2DCD2]/50 hover:text-[#C96B4A] transition-colors cursor-pointer"
             title="Sign out"
           >

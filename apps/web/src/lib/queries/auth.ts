@@ -16,13 +16,18 @@ export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) =>
-      api<LoginResponse>('/auth/login', {
+    mutationFn: async (payload: LoginPayload) => {
+      const data = await api<LoginResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(payload),
-      }),
+      });
+      if (data?.token && typeof window !== 'undefined') {
+        localStorage.setItem('token', data.token);
+      }
+      return data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      queryClient.clear();
     },
   });
 }
@@ -43,12 +48,15 @@ export function useRegister() {
   });
 }
 
+import { useAppStore } from '@/lib/store';
+
 export function useCurrentUser(enabled = true) {
+  const token = useAppStore((s) => s.token);
   return useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ['currentUser', token],
     queryFn: () => api<{ user: User }>('/auth/me'),
-    enabled,
+    enabled: enabled && !!token,
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 }

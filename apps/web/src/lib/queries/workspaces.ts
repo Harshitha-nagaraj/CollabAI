@@ -2,11 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Workspace, KanbanBoard, WorkspaceDetails } from '@/types';
 
+import { useAppStore } from '@/lib/store';
+
 export function useWorkspaces() {
+  const token = useAppStore((s) => s.token);
   return useQuery({
-    queryKey: ['workspaces'],
+    queryKey: ['workspaces', token],
     queryFn: () => api<{ workspaces: Workspace[] }>('/workspaces'),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }
 

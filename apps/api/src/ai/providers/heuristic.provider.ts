@@ -640,7 +640,7 @@ export class HeuristicProvider implements LLMProvider {
 
   private splitSentences(text: string): string[] {
     return text
-      .split(/[.!?\n]+/)
+      .split(/(?:[.!?\n;]+|,\s+and\s+(?=[A-Z][a-z]+))/)
       .map(s => s.trim())
       .filter(s => s.length > 5);
   }
@@ -651,8 +651,8 @@ export class HeuristicProvider implements LLMProvider {
     if (/^[•\-\*]?\s*(?:action|todo|task|action item):\s*/i.test(s)) {
       return true;
     }
-    // Person assigned to do something at the start of an item: e.g. "Sarah Connor to prepare..."
-    if (/^[•\-\*]?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+to\s+[a-z]+/.test(s)) {
+    // Person assigned to do something at the start of an item: e.g. "Sarah Connor to prepare..." or "Sarah will review..."
+    if (/^[•\-\*]?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:to|will|shall|is going to|should)\s+[a-z]+/i.test(s)) {
       return true;
     }
     // Explicit imperative verbs at the start of a bullet / item
@@ -660,7 +660,8 @@ export class HeuristicProvider implements LLMProvider {
       return true;
     }
     // Strong imperative phrases
-    return /\b(need to|must|should|action item|assign to)\b/i.test(s);
+    return /\b(need to|must|should|action item|assign to)\b/i.test(s) ||
+      /\b(?:will|shall)\s+(?:review|deploy|build|implement|test|fix|update|create|finalize|prepare|configure|refactor)\b/i.test(s);
   }
 
   private extractActionItems(
